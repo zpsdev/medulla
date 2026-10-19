@@ -47,6 +47,7 @@ def search(
 ):
     """Search across all memory layers. Uses hybrid BM25+vector search when embeddings exist."""
     from medulla.db.database import connect
+    from medulla.episodic.parser import project_name
     from medulla.search import search as do_search
 
     conn = connect()
@@ -68,7 +69,7 @@ def search(
             label = f"[magenta]{r.title}[/magenta]"
         else:
             date_str = r.date[:10] if r.date else ""
-            proj = r.project_dir.split("/")[-1] if r.project_dir else ""
+            proj = project_name(r.project_dir)
             chunk_hint = f"  [dim]chunk {r.chunk_index}[/dim]" if r.chunk_index is not None else ""
             label = f"[bold cyan]{r.id[:8]}[/bold cyan]  [dim]{date_str}  {proj}[/dim]{chunk_hint}"
         console.print(f"\n{label}")
@@ -94,7 +95,7 @@ def eval_command(
         console.print(f"[red]No eval set at {path}[/red]")
         console.print('Create one, e.g.: [{"query": "logD outliers", "relevant": ["<session_id>"]}]')
         raise typer.Exit(1)
-    cases = json.loads(path.read_text())
+    cases = json.loads(path.read_text(encoding="utf-8"))
 
     report = run_eval(connect(), cases, k=k)
     table = Table(show_header=True, header_style="bold")
@@ -124,7 +125,7 @@ def eval_gen_command(
     cases = generate(connect(), mode=mode, n=n)
     text = json.dumps(cases, indent=2)
     if out:
-        out.write_text(text)
+        out.write_text(text, encoding="utf-8")
         console.print(f"Wrote [cyan]{len(cases)}[/cyan] {mode} case(s) to {out}")
         if mode == "history":
             console.print("[dim]Fill in each case's 'relevant' from its 'candidates' before running eval.[/dim]")
@@ -141,6 +142,7 @@ def list_sessions(
 ):
     """List recent sessions."""
     from medulla.db.database import connect
+    from medulla.episodic.parser import project_name
     from medulla.episodic.store import list_sessions as do_list
 
     conn = connect()
@@ -160,7 +162,7 @@ def list_sessions(
     for row in rows:
         date = (row["started_at"] or "")[:10]
         sid = (row["session_id"] or "")[:8]
-        proj = (row["project_dir"] or "").split("/")[-1][:25]
+        proj = project_name(row["project_dir"])[:25]
         turns = str(row["turn_count"] or 0)
         msg = (row["first_message"] or "")[:80].replace("\n", " ")
         table.add_row(date, sid, proj, turns, msg)
@@ -689,8 +691,29 @@ def wiki_open():
     if not wiki.exists():
         console.print("[red]Wiki not found. Run medulla ingest first.[/red]")
         raise typer.Exit(1)
-    subprocess.run(["open", "-a", "Obsidian", str(wiki)], check=False)
-    console.print(f"[green]✓[/green] Opening {wiki} in Obsidian")
+    app_name = _open_vault(wiki)
+    console.print(f"[green]✓[/green] Opening {wiki} in {app_name}")
+
+
+def _open_vault(wiki: Path) -> str:
+    """Open the wiki in Obsidian via the platform's launcher. Returns the app used."""
+    import sys
+    if sys.platform == "darwin":
+        subprocess.run(["open", "-a", "Obsidian", str(wiki)], check=False)
+        return "Obsidian"
+    from urllib.parse import quote
+    uri = f"obsidian://open?path={quote(str(wiki), safe='')}"
+    if sys.platform == "win32":
+        import os, winreg
+        try:
+            winreg.CloseKey(winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, "obsidian"))
+        except OSError:
+            os.startfile(wiki)  # Obsidian not installed — fall back to Explorer
+            return "File Explorer"
+        os.startfile(uri)
+        return "Obsidian"
+    subprocess.run(["xdg-open", uri], check=False)
+    return "Obsidian"
 
 
 @wiki_app.command(name="lint")

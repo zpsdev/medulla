@@ -71,7 +71,13 @@ class ToolEvent:
 
 
 def is_subagent_file(path: Path) -> bool:
-    return bool(SUBAGENT_PATH_RE.search(str(path)))
+    # as_posix() so the regex matches Windows paths too (backslash separators)
+    return bool(SUBAGENT_PATH_RE.search(path.as_posix()))
+
+
+def project_name(project_dir: str | None) -> str:
+    """Last path component of a session cwd — handles both / and \\ separators."""
+    return re.split(r"[\\/]", project_dir or "")[-1]
 
 
 # ── tool-event extraction (backfill of command history) ─────────────────────────

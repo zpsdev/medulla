@@ -83,7 +83,7 @@ def _load_config() -> Config:
         except ImportError:
             return cfg
     try:
-        data = tomllib.loads(config_file.read_text())
+        data = tomllib.loads(config_file.read_text(encoding="utf-8"))
         llm_data = data.get("llm", {})
         cfg.llm.active = llm_data.get("active", cfg.llm.active)
         bd = llm_data.get("bedrock", {})

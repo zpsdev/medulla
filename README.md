@@ -45,6 +45,14 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 brew install --cask obsidian
 ```
 
+**Windows (PowerShell):**
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+winget install Obsidian.Obsidian   # optional
+```
+
+On Windows the data directory is `%USERPROFILE%\.medulla`. `medulla wiki open` uses Obsidian's `obsidian://` handler, or opens the folder in File Explorer if Obsidian isn't installed. To use a custom data directory: `setx MEDULLA_DIR "%USERPROFILE%\.medulla-dev"`.
+
 ---
 
 ## Install

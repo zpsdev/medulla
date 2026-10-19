@@ -62,7 +62,7 @@ def intake_to_raw(
         append_url_reference(wiki_path, slug, source, title=final_title)
         import tempfile
         tmp = Path(tempfile.mktemp(suffix=".md", prefix=f"{slug}_"))
-        tmp.write_text(f"---\nurl: {source}\ntitle: {final_title}\nsource_type: url\n---\n\n{text}")
+        tmp.write_text(f"---\nurl: {source}\ntitle: {final_title}\nsource_type: url\n---\n\n{text}", encoding="utf-8")
         queue_pending(conn, source, "url", final_title, force=force, processing_path=str(tmp))
         return tmp
 
@@ -199,7 +199,7 @@ def _process_raw_file(
         from medulla.semantic.sources.markdown import extract
         title, text = extract(raw_path)
         # Check raw/ frontmatter for original URL
-        content = raw_path.read_text(errors="replace")
+        content = raw_path.read_text(errors="replace", encoding="utf-8")
         source_ref = _extract_frontmatter_url(content) or str(raw_path)
     else:  # pragma: no cover
         text = raw_path.read_text(encoding="utf-8", errors="replace")
@@ -228,7 +228,7 @@ def _check_wikilinks(wiki_path: Path, pages: list[Path]) -> list[str]:
     for page in pages:
         if not page.exists():
             continue
-        content = page.read_text(errors="replace")
+        content = page.read_text(errors="replace", encoding="utf-8")
         for m in pattern.finditer(content):
             folder, slug = m.group(1), m.group(2).strip()
             target = wiki_path / folder / f"{slug}.md"
@@ -280,7 +280,7 @@ def _build_wiki_schema(wiki_path: Path) -> str:
             continue
         for md in sorted(d.glob("*.md")):
             slug = md.stem
-            content = md.read_text(errors="replace")
+            content = md.read_text(errors="replace", encoding="utf-8")
             # Extract title from frontmatter
             m = re.search(r"^title:\s*(.+)$", content, re.MULTILINE)
             title_str = m.group(1).strip() if m else slug
@@ -404,7 +404,7 @@ def _run_llm_pipeline(
             _raw_path = _p
     upsert_wiki_page(
         conn, source_slug, "source", source_data["title"],
-        source_path.read_text(), source_path,
+        source_path.read_text(encoding="utf-8"), source_path,
         tags=source_data.get("tags", []), scope=scope,
         raw_path=_raw_path,
     )
@@ -453,7 +453,7 @@ def _run_llm_pipeline(
             slug, cp, idx = future.result()
             path = write_concept_page(wiki_path, slug, cp, source_slug, scope)
             upsert_wiki_page(conn, slug, "concept", cp.get("title", slug),
-                             path.read_text(), path, tags=cp.get("tags", []),
+                             path.read_text(encoding="utf-8"), path, tags=cp.get("tags", []),
                              sources=[source_slug], scope=scope)
             update_index(wiki_path, slug, "concept", cp.get("title", slug),
                          cp.get("definition", "")[:80])
@@ -491,7 +491,7 @@ def _run_llm_pipeline(
             slug, ep, idx = future.result()
             path = write_entity_page(wiki_path, slug, ep, source_slug, scope)
             upsert_wiki_page(conn, slug, "entity", ep.get("title", slug),
-                             path.read_text(), path, tags=ep.get("tags", []),
+                             path.read_text(encoding="utf-8"), path, tags=ep.get("tags", []),
                              sources=[source_slug], scope=scope)
             update_index(wiki_path, slug, "entity", ep.get("title", slug),
                          ep.get("who_what", "")[:80])
@@ -555,7 +555,7 @@ def _run_llm_pipeline(
 def _add_source_to_page(page_path: Path, source_slug: str, conn) -> None:
     """Add source_slug to the sources: list in a concept/entity page's frontmatter."""
     import re as _re
-    content = page_path.read_text(errors="replace")
+    content = page_path.read_text(errors="replace", encoding="utf-8")
     # Parse existing sources list from frontmatter
     sources_match = _re.search(r"^sources:\s*\[([^\]]*)\]", content, _re.MULTILINE)
     if sources_match:
@@ -565,7 +565,7 @@ def _add_source_to_page(page_path: Path, source_slug: str, conn) -> None:
             existing.append(source_slug)
             new_sources = "[" + ", ".join(f'"{s}"' for s in existing) + "]"
             content = content[:sources_match.start()] + f"sources: {new_sources}" + content[sources_match.end():]
-            page_path.write_text(content)
+            page_path.write_text(content, encoding="utf-8")
             # Update DB content
             from medulla.semantic.store import upsert_wiki_page
             slug = page_path.stem
@@ -614,7 +614,7 @@ def store_wiki_page(
     page_dir = wiki_path / _DIR.get(page_type, f"{page_type}s")
     page_dir.mkdir(exist_ok=True)
     page_path = page_dir / f"{slug}.md"
-    page_path.write_text(content)
+    page_path.write_text(content, encoding="utf-8")
 
     # Local file → copy to raw/ for immutable archive + backtrace
     raw_dest = None

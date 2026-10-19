@@ -49,7 +49,7 @@ def _run_migrations(conn: sqlite3.Connection) -> None:
         version = migration_file.stem  # e.g. "V1__episodic"
         if version in applied:
             continue
-        sql = migration_file.read_text()
+        sql = migration_file.read_text(encoding="utf-8")
         conn.executescript(sql)
         conn.execute("INSERT INTO schema_migrations(version) VALUES (?)", (version,))
         conn.commit()

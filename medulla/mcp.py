@@ -24,6 +24,7 @@ from medulla.episodic.store import (
     list_sessions,
     search_events,
 )
+from medulla.episodic.parser import project_name
 from medulla.search import search as fts_search
 
 _server = Server("medulla")
@@ -201,7 +202,7 @@ _TOOLS = [
                 "page_type": {"type": "string", "enum": ["source", "concept", "entity"], "default": "source"},
                 "tags": {"type": "array", "items": {"type": "string"}},
                 "source_url": {"type": "string", "description": "Original URL if you fetched via WebFetch (appended to url-references.md log)"},
-                "source_path": {"type": "string", "description": "Local file path if you read a PDF/file (e.g. /Users/agarg/Downloads/paper.pdf) — file is copied to wiki/raw/ for immutable archive"},
+                "source_path": {"type": "string", "description": "Local file path if you read a PDF/file — absolute path, e.g. /Users/me/Downloads/paper.pdf or C:\\Users\\me\\Downloads\\paper.pdf — file is copied to wiki/raw/ for immutable archive"},
             },
             "required": ["title", "content"],
         },
@@ -376,7 +377,7 @@ def _tool_search(conn, args: dict) -> str:
     lines = [f"{len(results)} result(s) for \"{query}\":\n"]
     for r in results:
         date = (r.date or "")[:10]
-        proj = (r.project_dir or "").split("/")[-1]
+        proj = project_name(r.project_dir)
         if r.result_type == "tool_event":
             sid = r.id.split("#")[0][:8]     # id is "{session_id}#evt{rowid}"
             err = " ✗" if r.is_error else ""
@@ -548,7 +549,7 @@ def _tool_list(conn, args: dict) -> str:
     lines = [f"{len(rows)} session(s):\n"]
     for r in rows:
         date = (r["started_at"] or "")[:10]
-        proj = (r["project_dir"] or "").split("/")[-1]
+        proj = project_name(r["project_dir"])
         msg = (r["first_message"] or "")[:60].replace("\n", " ")
         slug = r["slug"] if r["slug"] and r["slug"] != r["session_id"] else ""
         name = f"  [{slug}]" if slug else ""

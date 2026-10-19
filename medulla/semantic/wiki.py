@@ -323,7 +323,7 @@ def write_raw_source(
         title=title or slug,
         source_type=source_type,
         content=content[:20_000],
-    ))
+    ), encoding="utf-8")
     return path
 
 
@@ -347,11 +347,11 @@ def append_url_reference(
             "# URL References\n\n"
             "Sources ingested via WebFetch in Claude Code / Kiro sessions.\n\n"
             "| Date | Source | Wiki |\n"
-            "|---|---|---|\n"
+            "|---|---|---|\n", encoding="utf-8"
         )
     display = title or slug
     entry = f"| {date.today().isoformat()} | [{display}]({url}) | [[sources/{slug}]] |\n"
-    log_path.write_text(log_path.read_text() + entry)
+    log_path.write_text(log_path.read_text(encoding="utf-8") + entry, encoding="utf-8")
     return log_path
 
 
@@ -390,7 +390,7 @@ def write_source_page(wiki_path: Path, slug: str, data: dict, source_ref: str, s
         gaps=_fmt_bullets(data.get("gaps", [])),
     )
     path = sources_dir / f"{slug}.md"
-    path.write_text(content)
+    path.write_text(content, encoding="utf-8")
     return path
 
 
@@ -401,7 +401,7 @@ def write_concept_page(wiki_path: Path, slug: str, data: dict, source_slug: str,
     # Merge sources if page already exists
     existing_sources: list[str] = []
     if path.exists():
-        existing = path.read_text()
+        existing = path.read_text(encoding="utf-8")
         m = re.search(r"^sources:\s*\[(.+?)\]", existing, re.MULTILINE)
         if m:
             existing_sources = [s.strip().strip('"').strip("'") for s in m.group(1).split(",")]
@@ -421,7 +421,7 @@ def write_concept_page(wiki_path: Path, slug: str, data: dict, source_slug: str,
         connections=_fmt_bullets(data.get("connections", [])),
         open_questions=_fmt_bullets(data.get("open_questions", [])),
     )
-    path.write_text(content)
+    path.write_text(content, encoding="utf-8")
     return path
 
 
@@ -431,7 +431,7 @@ def write_entity_page(wiki_path: Path, slug: str, data: dict, source_slug: str, 
     path = entities_dir / f"{slug}.md"
     existing_sources: list[str] = []
     if path.exists():
-        existing = path.read_text()
+        existing = path.read_text(encoding="utf-8")
         m = re.search(r"^sources:\s*\[(.+?)\]", existing, re.MULTILINE)
         if m:
             existing_sources = [s.strip().strip('"').strip("'") for s in m.group(1).split(",")]
@@ -449,7 +449,7 @@ def write_entity_page(wiki_path: Path, slug: str, data: dict, source_slug: str, 
         contributions=_fmt_bullets(data.get("contributions", [])),
         connections=_fmt_bullets(data.get("connections", [])),
     )
-    path.write_text(content)
+    path.write_text(content, encoding="utf-8")
     return path
 
 
@@ -461,9 +461,9 @@ def update_index(wiki_path: Path, slug: str, page_type: str, title: str, summary
             "# Wiki Index\n\n"
             "Content catalog for the Medulla wiki. Updated on every ingest.\n\n"
             f"**Stats:** 0 sources · 0 concept pages · 0 entity pages · "
-            f"Last updated: {date.today().isoformat()}\n\n---\n\n"
+            f"Last updated: {date.today().isoformat()}\n\n---\n\n", encoding="utf-8"
         )
-    content = index_path.read_text()
+    content = index_path.read_text(encoding="utf-8")
 
     _DIR = {"source": "sources", "concept": "concepts", "entity": "entities"}
     dir_name = _DIR.get(page_type, f"{page_type}s")
@@ -486,13 +486,13 @@ def update_index(wiki_path: Path, slug: str, page_type: str, title: str, summary
         f"{section}\n\n| Page | Summary |\n|---|---|\n{entry}",
         1,
     )
-    index_path.write_text(content)
+    index_path.write_text(content, encoding="utf-8")
     _refresh_index_stats(index_path)
 
 
 def _refresh_index_stats(index_path: Path) -> None:
     """Recompute the stats line in index.md from actual link counts."""
-    content = index_path.read_text()
+    content = index_path.read_text(encoding="utf-8")
     sources = content.count("[[sources/")
     concepts = content.count("[[concepts/")
     entities = content.count("[[entities/")
@@ -502,7 +502,7 @@ def _refresh_index_stats(index_path: Path) -> None:
         r"\*\*Stats:\*\*.*?Last updated: \d{4}-\d{2}-\d{2}", stats, content
     )
     if updated != content:
-        index_path.write_text(updated)
+        index_path.write_text(updated, encoding="utf-8")
 
 
 def append_log(wiki_path: Path, operation: str, title: str, details: str = "") -> None:
@@ -511,11 +511,11 @@ def append_log(wiki_path: Path, operation: str, title: str, details: str = "") -
         log_path.write_text(
             "# Wiki Log\n\nAppend-only record of all wiki operations.\n\n"
             "| Date | Operation | Title | Details |\n"
-            "|---|---|---|---|\n"
+            "|---|---|---|---|\n", encoding="utf-8"
         )
     detail_cell = details.replace("\n", " · ")[:80] if details else ""
     entry = f"| {date.today().isoformat()} | {operation} | {title} | {detail_cell} |\n"
-    log_path.write_text(log_path.read_text() + entry)
+    log_path.write_text(log_path.read_text(encoding="utf-8") + entry, encoding="utf-8")
 
 
 # ── Lint ───────────────────────────────────────────────────────────────────────
@@ -542,7 +542,7 @@ def lint_wiki(wiki_path: Path) -> dict:
     wikilink_re = re.compile(r"\[\[([^\]|]+)(?:\|[^\]]+)?\]\]")
 
     for md in all_files:
-        text = md.read_text()
+        text = md.read_text(encoding="utf-8")
         for m in wikilink_re.finditer(text):
             target = m.group(1).split("/")[-1]  # strip path prefix
             if target in all_slugs:
@@ -634,7 +634,7 @@ def _compute_related_slugs(
 def _update_related_frontmatter(path: "Path", related: list[str]) -> None:
     """Rewrite just the related: line in a wiki page's frontmatter."""
     import re as _re
-    content = path.read_text()
+    content = path.read_text(encoding="utf-8")
     new_related = _fmt_list(related)
     if _re.search(r"^related:", content, _re.MULTILINE):
         content = _re.sub(
@@ -645,7 +645,7 @@ def _update_related_frontmatter(path: "Path", related: list[str]) -> None:
         content = _re.sub(
             r"^(sources:.*$)", rf"\1\nrelated: {new_related}", content, flags=_re.MULTILINE
         )
-    path.write_text(content)
+    path.write_text(content, encoding="utf-8")
 
 
 def reindex_wiki_edges(conn, wiki_path: "Path | None" = None, top_k: int = 5) -> int:

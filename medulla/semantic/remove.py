@@ -77,7 +77,7 @@ def _plan_wiki_page(conn: sqlite3.Connection, folder: str, slug: str) -> dict[st
             continue
         p = Path(r["file_path"])
         if p.exists():
-            content = p.read_text(errors="replace")
+            content = p.read_text(errors="replace", encoding="utf-8")
             if _slug_in_related(slug, content):
                 plan["related_cleanup"].append(r["slug"])
 
@@ -106,7 +106,7 @@ def _plan_raw(conn: sqlite3.Connection, filename: str, wiki_path: Path | None) -
         raw_file = wiki_path / "raw" / filename
         for r in rows:
             if r["file_path"]:
-                src_content = Path(r["file_path"]).read_text(errors="replace") if Path(r["file_path"]).exists() else ""
+                src_content = Path(r["file_path"]).read_text(errors="replace", encoding="utf-8") if Path(r["file_path"]).exists() else ""
                 if str(raw_file) in src_content or filename in src_content:
                     plan["linked_source_slug"] = r["slug"]
                     plan["linked_source_file"] = r["file_path"]
@@ -197,10 +197,10 @@ def _remove_wiki_page(
             continue
         p = Path(r["file_path"])
         if p.exists():
-            content = p.read_text(errors="replace")
+            content = p.read_text(errors="replace", encoding="utf-8")
             if _slug_in_related(slug, content):
                 new_content = _remove_from_related(slug, content)
-                p.write_text(new_content)
+                p.write_text(new_content, encoding="utf-8")
                 cleaned.append(r["slug"])
 
     # 4. If removing a source: clean sources: frontmatter on concepts/entities
@@ -281,7 +281,7 @@ def _remove_from_related(slug: str, content: str) -> str:
 
 
 def _remove_from_sources_frontmatter(path: Path, source_slug: str) -> None:
-    content = path.read_text(errors="replace")
+    content = path.read_text(errors="replace", encoding="utf-8")
     m = re.search(r'^sources:\s*\[(.+?)\]', content, re.MULTILINE)
     if not m:
         return
@@ -289,7 +289,7 @@ def _remove_from_sources_frontmatter(path: Path, source_slug: str) -> None:
     items = [i for i in items if i != source_slug]
     new_list = "[" + ", ".join(f'"{i}"' for i in items) + "]" if items else "[]"
     content = re.sub(r'^sources:\s*\[.+?\]', f"sources: {new_list}", content, flags=re.MULTILINE)
-    path.write_text(content)
+    path.write_text(content, encoding="utf-8")
 
 
 def _resolve_raw_file(target: str, wiki_path: Path | None) -> Path | None:

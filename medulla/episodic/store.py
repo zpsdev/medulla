@@ -9,6 +9,12 @@ from medulla.episodic.parser import ParsedSession, ParsedAgentSession, ToolEvent
 from medulla.episodic.chunker import chunk_messages, Chunk
 
 
+def _project_pattern(project: str) -> str:
+    """LIKE pattern for a project path; pairs with REPLACE(project_dir, '\\', '/')
+    so C:\\repo and C:/repo match the same Windows sessions."""
+    return f"%{project.replace('\\', '/')}%"
+
+
 def upsert_session(conn: sqlite3.Connection, session: ParsedSession) -> None:
     conn.execute("""
         INSERT INTO sessions (
@@ -150,10 +156,10 @@ def list_sessions(conn: sqlite3.Connection, project: str | None = None, limit: i
             SELECT session_id, source, project_dir, slug, model, started_at, ended_at,
                    turn_count, tool_call_count, first_message
             FROM sessions
-            WHERE project_dir LIKE ?
+            WHERE REPLACE(project_dir, '\\', '/') LIKE ?
             ORDER BY started_at DESC
             LIMIT ?
-        """, (f"%{project}%", limit)).fetchall()
+        """, (_project_pattern(project), limit)).fetchall()
     return conn.execute("""
         SELECT session_id, source, project_dir, slug, model, started_at, ended_at,
                turn_count, tool_call_count, first_message
@@ -224,15 +230,15 @@ def get_project_context(
     sessions = conn.execute("""
         SELECT session_id, source, project_dir, model, started_at,
                turn_count, tool_call_count, first_message
-        FROM sessions WHERE project_dir LIKE ?
+        FROM sessions WHERE REPLACE(project_dir, '\\', '/') LIKE ?
         ORDER BY started_at DESC LIMIT ?
-    """, (f"%{project}%", session_limit)).fetchall()
+    """, (_project_pattern(project), session_limit)).fetchall()
 
     events = conn.execute("""
         SELECT event_ts, session_id, tool, command, output_preview
-        FROM tool_events WHERE project_dir LIKE ?
+        FROM tool_events WHERE REPLACE(project_dir, '\\', '/') LIKE ?
         ORDER BY event_ts DESC LIMIT ?
-    """, (f"%{project}%", event_limit)).fetchall()
+    """, (_project_pattern(project), event_limit)).fetchall()
 
     return {
         "project": project,
