@@ -807,4 +807,9 @@ def reset(
 
 
 def main():
+    import sys
+    # Windows pipes default to the locale codepage (cp1252), which can't encode ✓ / →
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure") and (stream.encoding or "").lower() != "utf-8":
+            stream.reconfigure(encoding="utf-8")
     app()

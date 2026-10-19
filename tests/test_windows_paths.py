@@ -67,6 +67,22 @@ def test_wiki_pages_written_as_utf8(tmp_path):
     assert path.parent.parent.joinpath("log.md").read_bytes().decode("utf-8").count(title) == 2
 
 
+# ── piped output on a cp1252 locale ───────────────────────────────────────────
+
+def test_main_reconfigures_non_utf8_streams(monkeypatch):
+    import io
+    from medulla import cli
+    out = io.TextIOWrapper(io.BytesIO(), encoding="cp1252")
+    err = io.TextIOWrapper(io.BytesIO(), encoding="utf-8")
+    monkeypatch.setattr(sys, "stdout", out)
+    monkeypatch.setattr(sys, "stderr", err)
+    monkeypatch.setattr(cli, "app", lambda: print("✓ →"))
+    cli.main()
+    assert out.encoding == "utf-8" and err.encoding == "utf-8"
+    out.flush()
+    assert out.buffer.getvalue().decode("utf-8").rstrip() == "✓ →"
+
+
 # ── wiki open ─────────────────────────────────────────────────────────────────
 
 def test_open_vault_macos(monkeypatch, tmp_path):
